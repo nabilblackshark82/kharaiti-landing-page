@@ -1,0 +1,61 @@
+name: Publish Kharaiti landing page (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: kharaiti-landing-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout the standalone advertising repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check the self-contained marketing page
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          must=['<html lang="ar" dir="rtl">','data:image/webp;base64,','0601174575','212601174575','TRY','PRO','300','13','7']
+          for phrase in must:
+              assert phrase in s, f'Missing marketing requirement: {phrase}'
+          assert 'BEGIN PRIVATE KEY' not in s
+          assert '28F76B7AD54F1ED6' not in s, 'Device identifier must never appear in public marketing'
+          print('Arabic landing page, embedded real screenshots, contact, and price verified')
+          PY
+
+      - name: Prepare the static site only
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+          touch _site/.nojekyll
+
+      - name: Set up GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload only public advertising files
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Publish to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
